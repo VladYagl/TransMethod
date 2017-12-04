@@ -17,6 +17,7 @@ class LexicalAnalyser(var reader: Reader) {
         pos++
         lastToken = when (sym) {
             -1 -> End()
+            '$'.toInt() -> End()
             '('.toInt() -> Lparen()
             ')'.toInt() -> Rparen()
             '|'.toInt() -> Alter()
