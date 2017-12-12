@@ -1,12 +1,22 @@
-func print(x: int) : void =
-    printf("s", x)
-end
+func check(x: int, count : int) : bool =
+    if (count * count < x) then
+        check(x, count + 1) && (x % count != 0)
+    else 1
 
-let x:int = 10 * 11 + 12 / (-1 + 1 * 0) in
-if x = 10 || !shirvik_pidr(dick(), 0 = love()) then
-    let x:int = 1 in print(x * x + x)
-else
-    if x = 11 then
-        print("gachiHop")
-    else
-        print("gachiPRIDE")
+func check(x: int) : bool =
+    check(x, 2)
+
+
+func print(x: int) : int =
+    0
+
+func main() : int =
+        let x:int = 10 * 11 + 12 / (-1 + 1 * 0) in
+        if x = 10 || !candy_ken(dick(), 0 = love()) then
+            let x:int = 1 in print(x * x + x)
+        else
+            if x = 11 then
+                let x: int = print("gachiHop") in 0
+            else
+                let x: int = print("gachiPRIDE") in 0
+

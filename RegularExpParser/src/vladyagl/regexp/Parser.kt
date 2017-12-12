@@ -19,18 +19,9 @@ class Parser(reader: Reader) {
 
     private fun parseS(): Node {
         return when (lex.token.type) {
-
+            Token.Type.LPAREN,
             Token.Type.LETTER -> {
-                Node("S", Node(lex.token.symbol.toString()), {lex.nextToken(); parseSPrime()}())
-            }
-
-            Token.Type.LPAREN -> {
-                lex.nextToken()
-                val inside = parseS()
-                if (lex.token.type != Token.Type.RPAREN)
-                    throw ParseException("Syntax error", lex.position)
-                lex.nextToken()
-                Node("S", Node("("), inside, Node(")"), parseSPrime())
+                Node("S", parseT(), parseSPrime())
             }
 
             Token.Type.RPAREN,
@@ -42,28 +33,77 @@ class Parser(reader: Reader) {
 
     private fun parseSPrime(): Node {
         return when (lex.token.type) {
-
-            Token.Type.LETTER,
-            Token.Type.LPAREN -> {
-                val first = parseS()
-                val second = parseSPrime()
-                Node("S'", first, second)
-            }
-
             Token.Type.ALTER -> {
                 lex.nextToken()
-                val first = parseS()
-                val second = parseSPrime()
-                Node("S'", Node("|"), first, second)
+                Node("S'", Node("|"), parseSPrime())
             }
 
-            Token.Type.KLEENE -> {
-                lex.nextToken()
-                Node("S'", Node("*"), parseSPrime())
-            }
-
+            Token.Type.LETTER,
+            Token.Type.LPAREN,
+            Token.Type.KLEENE,
             Token.Type.END,
             Token.Type.RPAREN -> Node("S'")
+        }
+    }
+
+    private fun parseT(): Node {
+        return when (lex.token.type) {
+            Token.Type.LPAREN,
+            Token.Type.LETTER -> {
+                Node("T", parseF(), parseTPrime())
+            }
+
+            Token.Type.RPAREN,
+            Token.Type.ALTER,
+            Token.Type.KLEENE,
+            Token.Type.END -> throw ParseException("Syntax error", lex.position)
+        }
+    }
+
+    private fun parseTPrime(): Node {
+        return when (lex.token.type) {
+            Token.Type.LETTER,
+            Token.Type.LPAREN -> {
+                Node("T'", parseF(), parseTPrime())
+            }
+
+            Token.Type.KLEENE,
+            Token.Type.ALTER,
+            Token.Type.END,
+            Token.Type.RPAREN -> Node("S'")
+        }
+    }
+
+    private fun parseF(): Node {
+        val token = lex.token
+        return when (token.type) {
+            Token.Type.LPAREN -> {
+                lex.nextToken()
+                Node("F", parseS(), {lex.nextToken(); parseFPrime()}())
+            }
+            Token.Type.LETTER -> {
+                Node("F", Node("" + token.symbol), {lex.nextToken(); parseFPrime()}())
+            }
+
+            Token.Type.RPAREN,
+            Token.Type.ALTER,
+            Token.Type.KLEENE,
+            Token.Type.END -> throw ParseException("Syntax error", lex.position)
+        }
+    }
+
+    private fun parseFPrime(): Node {
+        return when (lex.token.type) {
+            Token.Type.KLEENE -> {
+                lex.nextToken()
+                Node("F'", Node("*"), parseSPrime())
+            }
+
+            Token.Type.LETTER,
+            Token.Type.LPAREN,
+            Token.Type.ALTER,
+            Token.Type.END,
+            Token.Type.RPAREN -> Node("F'")
         }
     }
 

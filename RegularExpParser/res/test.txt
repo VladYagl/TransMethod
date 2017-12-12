@@ -1,4 +1,4 @@
-(ab|adsf)*((aa)|(bb))*
+((abc*b|a)*ab(aa|b*)b)*
 $
 ((abc*b|a)*ab(aa|b*)b)*
 (a)
