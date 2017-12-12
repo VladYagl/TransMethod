@@ -1,5 +1,5 @@
 func check(x: int, count : int) : bool =
-    if (count * count < x) then
+    if count * count < x then
         check(x, count + 1) && (x % count != 0)
     else 1
 
@@ -7,11 +7,12 @@ func check(x: int) : bool =
     check(x, 2)
 
 
+
 func print(x: int) : int =
     0
 
-func main() : int =
-        let x:int = 10 * 11 + 12 / (-1 + 1 * 0) in
+func main(): int =
+        let x: int = 10 * 11 + 12 / (-1 + 1 * 0) in
         if x = 10 || !candy_ken(dick(), 0 = love()) then
             let x:int = 1 in print(x * x + x)
         else

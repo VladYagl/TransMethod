@@ -14,7 +14,7 @@ fun main(args: Array<String>) {
             println()
             println(tree)
 
-            Visualizator().visualize(tree)
+            Visualizer().visualize(tree)
         }
     }
 }

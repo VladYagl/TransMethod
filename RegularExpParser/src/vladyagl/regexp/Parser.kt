@@ -35,7 +35,7 @@ class Parser(reader: Reader) {
         return when (lex.token.type) {
             Token.Type.ALTER -> {
                 lex.nextToken()
-                Node("S'", Node("|"), parseSPrime())
+                Node("S'", Node("|"), parseT(), parseSPrime())
             }
 
             Token.Type.LETTER,
@@ -79,7 +79,7 @@ class Parser(reader: Reader) {
         return when (token.type) {
             Token.Type.LPAREN -> {
                 lex.nextToken()
-                Node("F", parseS(), {lex.nextToken(); parseFPrime()}())
+                Node("F", Node("("), parseS(), {lex.nextToken(); parseFPrime()}(), Node(")"))
             }
             Token.Type.LETTER -> {
                 Node("F", Node("" + token.symbol), {lex.nextToken(); parseFPrime()}())
@@ -96,7 +96,7 @@ class Parser(reader: Reader) {
         return when (lex.token.type) {
             Token.Type.KLEENE -> {
                 lex.nextToken()
-                Node("F'", Node("*"), parseSPrime())
+                Node("F'", Node("*"), parseFPrime())
             }
 
             Token.Type.LETTER,

@@ -5,7 +5,7 @@ import org.graphstream.graph.Graph
 import org.graphstream.graph.Node
 import org.graphstream.graph.implementations.SingleGraph
 
-class Visualizator {
+class Visualizer {
 
     val levels: ArrayList<Int> = ArrayList()
     val gap = 300

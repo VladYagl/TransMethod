@@ -1,4 +1,4 @@
-((abc*b|a)*ab(aa|b*)b)*
+av(d|c)|b***|cd
 $
 ((abc*b|a)*ab(aa|b*)b)*
 (a)
