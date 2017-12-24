@@ -36,7 +36,7 @@ class Visualizer {
         if (level > 0) levels[level - 1] = maxOf(levels[level], levels[level - 1])
 
         leftSide = maxOf(leftSide, x)
-        return Pair(min, max)
+        return min to max
     }
 
 
