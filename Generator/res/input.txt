@@ -1,0 +1,36 @@
+grammar RegExp;
+
+sum : mul _sum {println(#0.res + #1.res)};
+_sum attrs (res: Int) : '+' mul _sum {$res = #1.res + #2.res}| {$res = 0};
+
+mul attrs (res: Int) : unar _mul {$res = #0.text.toInt() * #1.res};
+_mul attrs (res: Int) : '*' unar _mul {$res = #unar.text.toInt() * #2.res} | { $res = 1 };
+
+unar : DIG _unar;
+_unar : DIG _unar | ;
+
+DIG : '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+
+
+S : T S1;
+S1: '|' T S1 | ;
+
+T : F[11] T1 {println("printed from T" + #0.res)};
+T1: F[12] T1 | ;
+
+F (level: Int) attrs (res: Int) : LETTER F1 {
+
+$res = 10
+
+println("UR MOM GAY, Kappa <3")
+println("UR DAD GAY, Kappa <3")
+
+} | '(' S ')' F1;
+F1: '*' F1 | ;
+
+LETTER : 'a' | 'b' | 'c';
+
+DEBUG : S1 F_WORD 'test';
+
+F_WORD : 'fuck' | 'FUCK';
+N_WORD : 'nigger' | 'NIGGER';
