@@ -20,7 +20,9 @@ open class Expression(val canBeEmpty: Boolean = false) {
     override fun toString(): String = choices.joinToString(separator = " | ", postfix = ")", prefix = "(") { it.toString() }
 }
 
-open class Production(canBeEmpty: Boolean = false) : Expression(canBeEmpty) {
+class GrammarRule(val name: String, val expression: Expression) { }
+
+open class Production(canBeEmpty: Boolean = false, val code: String = "") : Expression(canBeEmpty) {
     val list = ArrayList<Expression>()
 
     override fun toString(): String = list.joinToString(separator = " ", postfix = "]", prefix = "[") { it.toString() }

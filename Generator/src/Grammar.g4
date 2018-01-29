@@ -1,20 +1,28 @@
 grammar Grammar;
 
-main : 'grammar' grammarName = NAME ';' (grammarRule ';')*;
+main : 'grammar' grammarName = NAME ';' header? members? (grammarRule ';')*;
 
-grammarRule : name = NAME ':' (term ('|' term)* | expression);
-
-expression : nonterm ('|' nonterm)*;
+grammarRule : name = NAME argsDef? ':' (term ('|' term)* | expression);
 
 term: (CONST)+;
 
-nonterm: (unar)+ | ;
+expression : nonterm ('|' nonterm)*;
 
-unar : unar'*' | ruleName = NAME | '(' expression ')' | token = CONST;
+nonterm: unar* CODE?;
 
+unar : unar'*' | ruleName = NAME args? | '(' expression ')' | token = CONST;
+
+header : '@header' CODE;
+members : '@members' CODE;
+
+argsDef : '[' typedArg (',' typedArg)* ']';
+typedArg : NAME ':' TYPE;
+args : '[' CODE (',' CODE)* ']';
 
 WHITESPACE : [ \t\r\n]+ -> skip;
 CONST : '\'' .*? '\'';
 NAME : [_a-zA-Z][_a-zA-Z0-9]*;
 
-TEST : 'asd';
+TYPE : NAME('.'NAME)*('<'TYPE (',' TYPE)'>')?'[]'? | NAME;
+CODE : '{' (~[{}]+ CODE?)* '}';
+

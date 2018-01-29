@@ -1,11 +1,25 @@
 import java.io.Reader
 
+//$header
+
 class ParserTemplate(reader: Reader) {
 
-    class Node(val name: String, vararg args: Node) {
-        val children = args
+//$members
+
+    class Node(val name: String) {
+        val children = ArrayList<Node>()
+        val attributes = HashMap<String, Any>()
+
+        fun addChild(child: Node) {
+            children.add(child)
+        }
+
         fun toStringTree(level: Int): String {
-            return "|  ".repeat(level) + "Node[" + name + "]" + if (children.isNotEmpty()) {"\n" + children.map{it.toStringTree(level + 1)}.joinToString(separator = "\n")} else {""}
+            return "|  ".repeat(level) + "Node[" + name + "]" + if (children.isNotEmpty()) {
+                "\n" + children.map { it.toStringTree(level + 1) }.joinToString(separator = "\n")
+            } else {
+                ""
+            }
         }
 
         override fun toString(): String {

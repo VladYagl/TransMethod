@@ -31,9 +31,10 @@ class RuleVisitor : GrammarBaseVisitor<Expression>() {
     }
 
     override fun visitNonterm(context: GrammarParser.NontermContext): Production {
-        if (context.unar().isEmpty()) return Production(true)
+        val code = context.CODE()?.text ?: ""
+        if (context.unar().isEmpty()) return Production(true, code)
         val unars = context.unar().map { visitUnar(it) }
-        val production = Production(unars.map { it.canBeEmpty }.fold(true, Boolean::and))
+        val production = Production(unars.map { it.canBeEmpty }.fold(true, Boolean::and), code)
         production.list.addAll(unars)
         production.tokens.addAll(unars.map { it.tokens }.fold(HashSet()) { acc, mutableSet -> acc.union(mutableSet) as HashSet<Token> })
         return production

@@ -26,9 +26,9 @@ class LexerTemplate (var reader: Reader) {
             -1 -> Token(Token.Type.END, "")
 //            '$'.toInt() -> Token(Token.Type.END, "")
 //$choice
-            else -> throw ParseException("Illegal character: '$sym'", position)
+            else -> throw ParseException("Illegal character: '$sym'-[${sym.toChar()}]", position)
         }
-        print(sym.toChar())
+//        print(sym.toChar())
         return token
     }
 }

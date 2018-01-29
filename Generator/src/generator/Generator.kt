@@ -7,12 +7,14 @@ import jdk.nashorn.internal.runtime.ScriptObject
 import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.RuleContextWithAltNum
 import java.io.*
+import kotlin.concurrent.timer
 
 class Generator(val rules: HashMap<String, Expression>,
                 val rootRule: String,
                 val grammarName: String,
                 val outDir: String = "generated",
-                val outPackage: String = "generated") {
+                val outPackage: String = "generated",
+                val extra: HashMap<String, String> = HashMap()) {
 
     val LEXER_TEMPLATE = "templates/LexerTemplate.kt"
     val PARSER_TEMPLATE = "templates/ParserTemplate.kt"
@@ -56,24 +58,24 @@ class Generator(val rules: HashMap<String, Expression>,
 
         //Expand rule first
         while ({
-            rules.map { (_, rule) ->
-                val toPut = HashMap<Token, Production>()
-                rule.first.forEach { (token, exp) ->
-                    if (token is Rule) {
-                        if (tokens.contains(token.ruleName)) {
-                            toPut.put(tokens[token.ruleName]!!, exp)
-                        } else {
-                            toPut.putAll(rules[token.ruleName]!!.first.map { it.key to exp })
+                    rules.map { (_, rule) ->
+                        val toPut = HashMap<Token, Production>()
+                        rule.first.forEach { (token, exp) ->
+                            if (token is Rule) {
+                                if (tokens.contains(token.ruleName)) {
+                                    toPut.put(tokens[token.ruleName]!!, exp)
+                                } else {
+                                    toPut.putAll(rules[token.ruleName]!!.first.map { it.key to exp })
+                                }
+                            }
                         }
-                    }
-                }
-                if (toPut.isNotEmpty()) {
-                    val ans = toPut.map { !rule.first.contains(it.key) }.fold(false, Boolean::or)
-                    rule.first.putAll(toPut)
-                    ans
-                } else false
-            }.fold(false, Boolean::or)
-        }()) {
+                        if (toPut.isNotEmpty()) {
+                            val ans = toPut.map { !rule.first.contains(it.key) }.fold(false, Boolean::or)
+                            rule.first.putAll(toPut)
+                            ans
+                        } else false
+                    }.fold(false, Boolean::or)
+                }()) {
         }
 
         //Remove rules from first
@@ -118,19 +120,21 @@ class Generator(val rules: HashMap<String, Expression>,
 
         //Expand rules in follow
         while (rules.map { (_, expression) ->
-            if (expression.last.isEmpty()) false
-            else
-                expression.last.map {
-                    val changed = rules[it.ruleName]?.follow?.containsAll(expression.follow) ?: false
-                    rules[it.ruleName]?.follow?.addAll(expression.follow)
-                    !changed
-                }.fold(false, Boolean::or)
-        }.fold(false, Boolean::or)) {
+                    if (expression.last.isEmpty()) false
+                    else
+                        expression.last.map {
+                            val changed = rules[it.ruleName]?.follow?.containsAll(expression.follow) ?: false
+                            rules[it.ruleName]?.follow?.addAll(expression.follow)
+                            !changed
+                        }.fold(false, Boolean::or)
+                }.fold(false, Boolean::or)) {
         }
 
         //Replace rules with follow
         rules.forEach { _, expression ->
-            expression.follow.addAll(expression.follow.map { rules[(it as? Rule)?.ruleName]?.first?.keys ?: HashSet() }.fold(HashSet()) { acc, mutableSet -> acc.union(mutableSet) as HashSet<Token> })
+            expression.follow.addAll(expression.follow.map {
+                rules[(it as? Rule)?.ruleName]?.first?.keys ?: HashSet()
+            }.fold(HashSet()) { acc, mutableSet -> acc.union(mutableSet) as HashSet<Token> })
             expression.follow.removeIf { it is Rule }
         }
     }
@@ -162,7 +166,23 @@ class Generator(val rules: HashMap<String, Expression>,
 
     private val indent = "    "
 
-    fun generateLexer() {
+    private fun formatCode(code: String, indent: String = "", braces: Boolean = false): String {
+        return code
+                .substring(if (!braces) {
+                    1 until code.length - 1
+                } else {
+                    0 until code.length
+                })
+                .lines()
+                .filter { it.isNotBlank() }
+                .joinToString("\n$indent", prefix = indent) {
+                    it.trim()
+                            .replace("\\$[a-z]+".toRegex()) { match -> "local.attributes[\"${match.value.drop(1)}\"]" }
+                            .replace("#([0-9]+)\\.([a-z]+)".toRegex()) { match -> "local.children[${match.groupValues[1]}].attributes[\"${match.groupValues[2]}\"]" }
+                }
+    }
+
+    private fun generateLexer() {
         BufferedReader(FileReader(LEXER_TEMPLATE)).useLines { lines ->
             val choices = tokens.map { (name, mainToken) ->
                 mainToken.tokens.map { token ->
@@ -186,22 +206,51 @@ class Generator(val rules: HashMap<String, Expression>,
         }
     }
 
-    fun generateRuleParser(name: String, expression: Expression): String {
-        return "${indent}private fun parse$name(): Node {\n${indent.repeat(2)}return Node(\"STUB\")\n$indent}"
+    private fun generateRuleParser(name: String, expression: Expression): String {
+        val choices = expression.first.map { (token, production) ->
+            val parseProduction = production.list.map { it ->
+                when {
+                    (it is Rule && tokens.contains(it.ruleName)) -> "lex.nextToken();local.addChild(Node(\"$it\"))"
+                    it is Rule -> "local.addChild(parse${it.ruleName}())"
+                    it is Token -> "lex.nextToken();local.addChild(Node(\"$it\"))"
+                    else -> throw Exception("IDK HOW TO PARSE " + it.javaClass)
+                }
+            }
+            "Token.Type.${token.name} -> {\n${parseProduction.joinToString(separator = "\n${indent.repeat(4)}", prefix = "${indent.repeat(4)}")}${if (production.code.isNotBlank()) {
+                "\n" + formatCode(production.code, indent = indent.repeat(4))
+            } else {
+                ""
+            }}\n${indent.repeat(3)}}"
+        }
+        return "${indent}private fun parse$name(): Node {" +
+                "\n${indent.repeat(2)}val local = Node(\"$name\")" +
+                "\n${indent.repeat(2)}when (lex.token.type) {" +
+                choices.joinToString(separator = "\n${indent.repeat(3)}", prefix = "\n${indent.repeat(3)}") +
+                (if (!expression.canBeEmpty) "\n${indent.repeat(3)}else -> throw ParseException(\"Syntax error\", lex.position)" else "") +
+                "\n${indent.repeat(2)}}" +
+                "\n${indent.repeat(2)}return local" +
+                "\n$indent}"
     }
 
-    fun generateParser() {
+    private fun generateParser() {
         BufferedReader(FileReader(PARSER_TEMPLATE)).useLines { lines ->
 
             val rules = rules.filter { it.value !is Token }.map { (name, expression) -> generateRuleParser(name, expression) }
 
             val pack = (if (outPackage.isNotBlank()) "package $outPackage\n\n" else "")
 
-            val parser = pack + lines.joinToString(separator = "\n")
+            var parser = pack + lines.joinToString(separator = "\n")
                     .replace("ParserTemplate", "${grammarName}Parser")
                     .replace("LexerTemplate", "${grammarName}Lexer")
                     .replace("Node(\"RootRule\")", "parse$rootRule()")
                     .replace("//\$rules", rules.joinToString(separator = "\n\n"))
+
+            if (extra["header"]?.isNotEmpty() == true) {
+                parser = parser.replace("//\$header", formatCode(extra["header"]!!))
+            }
+            if (extra["members"]?.isNotEmpty() == true) {
+                parser = parser.replace("//\$members", formatCode(extra["members"]!!, indent))
+            }
 
             File("$outDir/${grammarName}Parser.kt").parentFile.mkdirs()
             BufferedWriter(FileWriter("$outDir/${grammarName}Parser.kt")).use { writer ->
