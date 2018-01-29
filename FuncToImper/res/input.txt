@@ -1,23 +1,14 @@
-func check(x: int, count : int) : bool =
+func fib(a, b, n) =
+    if n > 0 then fib(b, a + b, n - 1)
+    else b
+
+func fib(n) = fib(0, 1, n - 1)
+
+func check(x, count) : bool =
     if count * count < x then
         check(x, count + 1) && (x % count != 0)
     else 1
 
-func check(x: int) : bool =
+func check(x) : bool =
     check(x, 2)
-
-
-
-func print(x: int) : int =
-    0
-
-func main(): int =
-        let x: int = 10 * 11 + 12 / (-1 + 1 * 0) in
-        if x = 10 || !candy_ken(dick(), 0 = love()) then
-            let x:int = 1 in print(x * x + x)
-        else
-            if x = 11 then
-                let x: int = print("gachiHop") in 0
-            else
-                let x: int = print("gachiPRIDE") in 0
 
