@@ -1,3 +1,5 @@
+grammar FirstTask;
+
 S : T S1;
 S1: '|' T S1 | ;
 
