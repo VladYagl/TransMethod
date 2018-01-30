@@ -16,14 +16,22 @@ import java.util.Collections;
             return "";
         }
     }
+
+    private String getType(String type) {
+        if (type == null) {
+            return "int";
+        } else {
+            return type;
+        }
+    }
 }
 
 main
 	: (expression = expr[0, false] {if ($expression.res != null) {System.out.println($expression.res);}})*;
 
 expr[int level, boolean ret] returns [String res]
-    : 'let' var = NAME ':' type = NAME '=' rep = expr[0, false] 'in' e = expr[level, ret] {
-        $res = indent($level) + $type.text + " " + $var.text + " = " + $rep.res + ";\n" + $e.res;
+    : 'let' var = NAME (':' type = NAME)? '=' rep = expr[0, false] 'in' e = expr[level, ret] {
+        $res = indent($level) + getType($type.text) + " " + $var.text + " = " + $rep.res + ";\n" + $e.res;
     }
     | 'if' condition = expr[0, false] 'then' then = expr[level + 1, ret] 'else' elseExpr = expr[level + 1, ret] {
         $res = indent($level)
@@ -31,8 +39,8 @@ expr[int level, boolean ret] returns [String res]
             + indent($level) +"} else {\n" + $elseExpr.res + ";\n"
             + indent($level) + "}";
     }
-    | 'func' name = NAME '(' args = typelist ')' ':' type = NAME '=' body = expr[level + 1, true] {
-        $res = indent($level) + $type.text + " " + $name.text + "(" + $args.res + ") {\n" + $body.res + ";\n}";
+    | 'func' name = NAME '(' args = typelist ')' (':' type = NAME)? '=' body = expr[level + 1, true] {
+        $res = indent($level) + getType($type.text) + " " + $name.text + "(" + $args.res + ") {\n" + $body.res + ";\n}";
     }
     | l = logic {$res = indent($level) + addReturn($ret) + $l.res;};
 
@@ -79,8 +87,10 @@ list returns [String res]
     ;
 
 typelist returns [String res]
-    : e = expr[0, false] ':' type = NAME {$res = $type.text + " " + $e.res;}
-    | l = typelist ',' e = expr[0, false] ':' type = NAME {$res = $l.res + ", " + $type.text + " " + $e.res;}
+    : e = expr[0, false] (':' type = NAME)? {$res = getType($type.text) + " " + $e.res;}
+    | l = typelist ',' e = expr[0, false] (':' type = NAME)? {
+        $res = $l.res + ", " + getType($type.text) + " " + $e.res;
+    }
     | {$res = "";}
     ;
 
