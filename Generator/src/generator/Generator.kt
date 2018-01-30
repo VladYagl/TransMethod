@@ -1,16 +1,8 @@
 package generator
 
-import com.sun.org.apache.xpath.internal.operations.Bool
-import generated.RegExpParser
-import jdk.nashorn.internal.objects.NativeArray.forEach
-import jdk.nashorn.internal.objects.NativeArray.isArray
-import jdk.nashorn.internal.runtime.ScriptObject
-import org.antlr.v4.runtime.RuleContext
-import org.antlr.v4.runtime.RuleContextWithAltNum
 import java.io.*
-import kotlin.concurrent.timer
 
-class Generator(val rules: HashMap<String, Expression>,
+class Generator(private val rules: HashMap<String, Expression>,
                 val rootRule: String,
                 val grammarName: String,
                 val outDir: String = "generated",
@@ -28,7 +20,7 @@ class Generator(val rules: HashMap<String, Expression>,
         rules.forEach { (_, rule) ->
             if (rule !is Rule)
                 if (rule is Token) {
-                    tokens.put(rule.name, rule)
+                    tokens[rule.name] = rule
                 } else {
                     tokens.putAll(rule.tokens.filter { it !is Rule }.map { it.name to it })
                 }
@@ -66,7 +58,7 @@ class Generator(val rules: HashMap<String, Expression>,
                         rule.first.forEach { (token, exp) ->
                             if (token is Rule) {
                                 if (tokens.contains(token.ruleName)) {
-                                    toPut.put(tokens[token.ruleName]!!, exp)
+                                    toPut[tokens[token.ruleName]!!] = exp
                                 } else {
                                     toPut.putAll(rules[token.ruleName]!!.first.map { it.key to exp })
                                 }
@@ -197,14 +189,14 @@ class Generator(val rules: HashMap<String, Expression>,
     private fun generateLexer() {
         BufferedReader(FileReader(LEXER_TEMPLATE)).useLines { lines ->
             val choices = tokens.map { (name, mainToken) ->
-                mainToken.tokens.map { token ->
+                mainToken.tokens.joinToString(separator = "\n") { token ->
                     "${indent.repeat(3)}${token.text.replace("\'", "\"")}.first().toInt() -> ${
                     if (token.text.length - 2 > 1) {
                         "{\n${indent.repeat(4)}val text = sym.toString() + (1..${token.text.length - 3}).map { reader.read().toString() }.joinToString()" +
                                 "\n${indent.repeat(4)}Token(Token.Type.$name, text)" +
                                 "\n${indent.repeat(3)}}"
                     } else "Token(Token.Type.$name, sym.toChar().toString())"}"
-                }.joinToString(separator = "\n")
+                }
             }.joinToString(separator = "\n")
 
             val pack = (if (outPackage.isNotBlank()) "package $outPackage\n\n" else "")
@@ -223,7 +215,7 @@ class Generator(val rules: HashMap<String, Expression>,
 
     private fun generateRuleParser(name: String, expression: Expression): String {
         val choices = expression.first.map { (token, production) ->
-            val parseProduction = production.list.map { it ->
+            val parseProduction = production.list.joinToString(separator = "\n${indent.repeat(4)}", prefix = indent.repeat(4)) { it ->
                 when {
                     (it is Rule && tokens.contains(it.ruleName)) ->
                         "local.text += lex.token.text;lex.nextToken();local.addChild(Node(\"$it\"))"
@@ -231,7 +223,7 @@ class Generator(val rules: HashMap<String, Expression>,
                     it is Token -> "local.text += lex.token.text;lex.nextToken();local.addChild(Node(\"$it\"))"
                     else -> throw Exception("IDK HOW TO PARSE " + it.javaClass)
                 }
-            }.joinToString(separator = "\n${indent.repeat(4)}", prefix = indent.repeat(4))
+            }
 
             "Token.Type.${token.name} -> {\n" + parseProduction + (
                     if (production.code.isNotBlank())

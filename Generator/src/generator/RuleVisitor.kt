@@ -6,23 +6,22 @@ import grammar.GrammarParser
 class RuleVisitor : GrammarBaseVisitor<Expression>() {
 
     val rules = HashMap<String, Expression>()
-    val follow = HashMap<String, MutableSet<Token>>()
 
     override fun visitGrammarRule(context: GrammarParser.GrammarRuleContext): Expression {
-        if (context.expression() != null) {
+        return if (context.expression() != null) {
             val expression = visitExpression(context.expression())
             expression.args = context.arg?.text?.drop(1)?.dropLast(1) ?: ""
             context.arg?.attrs?.let { expression.attrs.putAll(it) }
             context.attr?.attrs?.let { expression.attrs.putAll(it) }
             rules[context.name.text] = expression
-            return expression
+            expression
         } else {
             val token = ComplexToken(context.name.text)
             context.term().forEach {
                 token.add(visitTerm(it))
             }
             rules[context.name.text] = token
-            return token
+            token
         }
     }
 
