@@ -1,5 +1,8 @@
 // Generated from D:/StudyHard/StanokParsing/Generator/src\Grammar.g4 by ANTLR 4.7
 package grammar;
+
+    import java.util.HashMap;
+
 import org.antlr.v4.runtime.tree.ParseTreeVisitor;
 
 /**
@@ -70,6 +73,12 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitTypedArg(GrammarParser.TypedArgContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#type}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitType(GrammarParser.TypeContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link GrammarParser#args}.
 	 * @param ctx the parse tree

@@ -11,6 +11,9 @@ class RuleVisitor : GrammarBaseVisitor<Expression>() {
     override fun visitGrammarRule(context: GrammarParser.GrammarRuleContext): Expression {
         if (context.expression() != null) {
             val expression = visitExpression(context.expression())
+            expression.args = context.arg?.text?.drop(1)?.dropLast(1) ?: ""
+            context.arg?.attrs?.let { expression.attrs.putAll(it) }
+            context.attr?.attrs?.let { expression.attrs.putAll(it) }
             rules[context.name.text] = expression
             return expression
         } else {
@@ -25,7 +28,7 @@ class RuleVisitor : GrammarBaseVisitor<Expression>() {
 
     override fun visitExpression(context: GrammarParser.ExpressionContext): Expression {
         val cases = context.nonterm().map { visitNonterm(it) }
-        val expression = Expression(cases.map { it.canBeEmpty }.fold(false, Boolean::or))
+        val expression = Expression(cases.map { it.canBeEmpty }.fold(false, Boolean::or), cases.find { it.canBeEmpty })
         cases.forEach { expression.add(it) }
         return expression
     }
@@ -42,7 +45,7 @@ class RuleVisitor : GrammarBaseVisitor<Expression>() {
 
     override fun visitUnar(context: GrammarParser.UnarContext?): Expression {
         return when {
-            context?.ruleName != null -> Rule(context.ruleName.text)
+            context?.ruleName != null -> Rule(context.ruleName.text, context.args()?.text?.dropLast(1)?.drop(1) ?: "")
 
             context?.token != null -> Token(context.token.text)
 

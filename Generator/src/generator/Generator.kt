@@ -1,6 +1,7 @@
 package generator
 
 import com.sun.org.apache.xpath.internal.operations.Bool
+import generated.RegExpParser
 import jdk.nashorn.internal.objects.NativeArray.forEach
 import jdk.nashorn.internal.objects.NativeArray.isArray
 import jdk.nashorn.internal.runtime.ScriptObject
@@ -18,6 +19,8 @@ class Generator(val rules: HashMap<String, Expression>,
 
     val LEXER_TEMPLATE = "templates/LexerTemplate.kt"
     val PARSER_TEMPLATE = "templates/ParserTemplate.kt"
+
+    val PREDIFINED_ATTRS = setOf("text")
 
     private val tokens = HashMap<String, Token>()
 
@@ -166,7 +169,9 @@ class Generator(val rules: HashMap<String, Expression>,
 
     private val indent = "    "
 
-    private fun formatCode(code: String, indent: String = "", braces: Boolean = false): String {
+    val test = "\\{(~[{}]+)}".toRegex()
+
+    private fun formatCode(code: String, indent: String = "", braces: Boolean = false, context: Production? = null): String {
         return code
                 .substring(if (!braces) {
                     1 until code.length - 1
@@ -177,8 +182,15 @@ class Generator(val rules: HashMap<String, Expression>,
                 .filter { it.isNotBlank() }
                 .joinToString("\n$indent", prefix = indent) {
                     it.trim()
-                            .replace("\\$[a-z]+".toRegex()) { match -> "local.attributes[\"${match.value.drop(1)}\"]" }
-                            .replace("#([0-9]+)\\.([a-z]+)".toRegex()) { match -> "local.children[${match.groupValues[1]}].attributes[\"${match.groupValues[2]}\"]" }
+                            .replace("\\$[_a-zA-Z]+".toRegex()) { match -> "local.${match.value.drop(1)}" }
+                            .replace("#([0-9a-zA-Z]+)\\.([_a-zA-Z]+)".toRegex()) { match ->
+                                val childNumber = (if (match.groupValues[1].toIntOrNull() != null) {
+                                    match.groupValues[1].toInt()
+                                } else {
+                                    context!!.list.indexOfFirst { it is Rule && it.ruleName == match.groupValues[1] }
+                                })
+                                "(local.children[$childNumber] as ${(context!!.list[childNumber] as Rule).ruleName}Node).${match.groupValues[2]}!!"
+                            }
                 }
     }
 
@@ -186,9 +198,12 @@ class Generator(val rules: HashMap<String, Expression>,
         BufferedReader(FileReader(LEXER_TEMPLATE)).useLines { lines ->
             val choices = tokens.map { (name, mainToken) ->
                 mainToken.tokens.map { token ->
-                    "${indent.repeat(3)}${token.text.replace("\'", "\"")}.first().toInt() -> ${if (token.text.length - 2 > 1) {
-                        "{\n${indent.repeat(4)}val text = sym.toString() + (1..${token.text.length - 3}).map { reader.read().toString() }.joinToString()\n${indent.repeat(4)}Token(Token.Type.$name, text)\n${indent.repeat(3)}}"
-                    } else "Token(Token.Type.$name, sym.toString())"}"
+                    "${indent.repeat(3)}${token.text.replace("\'", "\"")}.first().toInt() -> ${
+                    if (token.text.length - 2 > 1) {
+                        "{\n${indent.repeat(4)}val text = sym.toString() + (1..${token.text.length - 3}).map { reader.read().toString() }.joinToString()" +
+                                "\n${indent.repeat(4)}Token(Token.Type.$name, text)" +
+                                "\n${indent.repeat(3)}}"
+                    } else "Token(Token.Type.$name, sym.toChar().toString())"}"
                 }.joinToString(separator = "\n")
             }.joinToString(separator = "\n")
 
@@ -210,23 +225,38 @@ class Generator(val rules: HashMap<String, Expression>,
         val choices = expression.first.map { (token, production) ->
             val parseProduction = production.list.map { it ->
                 when {
-                    (it is Rule && tokens.contains(it.ruleName)) -> "lex.nextToken();local.addChild(Node(\"$it\"))"
-                    it is Rule -> "local.addChild(parse${it.ruleName}())"
-                    it is Token -> "lex.nextToken();local.addChild(Node(\"$it\"))"
+                    (it is Rule && tokens.contains(it.ruleName)) ->
+                        "local.text += lex.token.text;lex.nextToken();local.addChild(Node(\"$it\"))"
+                    it is Rule -> "local.addChild(parse${it.ruleName}(${it.callArgs}))"
+                    it is Token -> "local.text += lex.token.text;lex.nextToken();local.addChild(Node(\"$it\"))"
                     else -> throw Exception("IDK HOW TO PARSE " + it.javaClass)
                 }
-            }
-            "Token.Type.${token.name} -> {\n${parseProduction.joinToString(separator = "\n${indent.repeat(4)}", prefix = "${indent.repeat(4)}")}${if (production.code.isNotBlank()) {
-                "\n" + formatCode(production.code, indent = indent.repeat(4))
-            } else {
-                ""
-            }}\n${indent.repeat(3)}}"
+            }.joinToString(separator = "\n${indent.repeat(4)}", prefix = indent.repeat(4))
+
+            "Token.Type.${token.name} -> {\n" + parseProduction + (
+                    if (production.code.isNotBlank())
+                        "\n" + formatCode(production.code, indent = indent.repeat(4), context = production)
+                    else "") +
+                    "\n${indent.repeat(3)}}"
         }
-        return "${indent}private fun parse$name(): Node {" +
-                "\n${indent.repeat(2)}val local = Node(\"$name\")" +
+        return "${indent}class ${name}Node(): Node(\"$name\") {\n" +
+                expression.attrs
+                        .filter { (name, _) -> !PREDIFINED_ATTRS.contains(name) }
+                        .map { (name, type) -> "var $name: $type? = null" }
+                        .joinToString(separator = "\n") +
+                "\n$indent}\n" +
+                "${indent}private fun parse$name(${expression.args}): Node {" +
+                "\n${indent.repeat(2)}val local = ${name}Node()" +
                 "\n${indent.repeat(2)}when (lex.token.type) {" +
-                choices.joinToString(separator = "\n${indent.repeat(3)}", prefix = "\n${indent.repeat(3)}") +
-                (if (!expression.canBeEmpty) "\n${indent.repeat(3)}else -> throw ParseException(\"Syntax error\", lex.position)" else "") +
+                choices.joinToString(separator = "\n${indent.repeat(3)}", prefix = "\n${indent.repeat(3)}") + (
+                if (!expression.canBeEmpty)
+                    "\n${indent.repeat(3)}else -> throw ParseException(\"Syntax error\", lex.position)"
+                else
+                    " else -> {\n" + (
+                            if (expression.emptyChoice?.code?.isNotBlank() == true)
+                                formatCode(expression.emptyChoice.code, indent = indent.repeat(4), context = expression.emptyChoice)
+                            else "") + "\n${indent.repeat(3)}}"
+                ) +
                 "\n${indent.repeat(2)}}" +
                 "\n${indent.repeat(2)}return local" +
                 "\n$indent}"
@@ -235,7 +265,9 @@ class Generator(val rules: HashMap<String, Expression>,
     private fun generateParser() {
         BufferedReader(FileReader(PARSER_TEMPLATE)).useLines { lines ->
 
-            val rules = rules.filter { it.value !is Token }.map { (name, expression) -> generateRuleParser(name, expression) }
+            val rules = rules.filter { it.value !is Token }.map { (name, expression) ->
+                generateRuleParser(name, expression)
+            }
 
             val pack = (if (outPackage.isNotBlank()) "package $outPackage\n\n" else "")
 

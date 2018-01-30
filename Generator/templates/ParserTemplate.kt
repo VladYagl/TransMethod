@@ -1,3 +1,4 @@
+import java.awt.SystemColor.text
 import java.io.Reader
 
 //$header
@@ -6,12 +7,13 @@ class ParserTemplate(reader: Reader) {
 
 //$members
 
-    class Node(val name: String) {
+    open class Node(val name: String) {
         val children = ArrayList<Node>()
-        val attributes = HashMap<String, Any>()
+        var text: String = ""
 
         fun addChild(child: Node) {
             children.add(child)
+            text += child.text
         }
 
         fun toStringTree(level: Int): String {

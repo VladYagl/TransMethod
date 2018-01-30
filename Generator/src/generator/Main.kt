@@ -6,7 +6,10 @@ import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 
 fun main(args: Array<String>) {
-    args.forEach { fileName ->
+    val rootRule = args.filterIndexed { index, _ -> index > 0 && args[index - 1] == "-root" }.first()
+    val outDir = args.filterIndexed { index, _ -> index > 0 && args[index - 1] == "-dir" }.firstOrNull()
+    val outPackage = args.filterIndexed { index, _ -> index > 0 && args[index - 1] == "-pack" }.firstOrNull()
+    args.last().let { fileName ->
         val extra = HashMap<String, String>()
 
         val grammar = GrammarParser(CommonTokenStream(GrammarLexer(CharStreams.fromFileName(fileName)))).main()
@@ -14,13 +17,19 @@ fun main(args: Array<String>) {
         println(grammar.grammarName.text)
         grammar.grammarRule().forEach { rule ->
             println(rule.name.text + " -> " + rule.expression()?.text)
-            println("ARGS! __ " + rule.argsDef())
             visitor.visit(rule)
         }
 
         extra["members"] = grammar.members()?.CODE()?.text ?: ""
         extra["header"] = grammar.header()?.CODE()?.text ?: ""
 
-        Generator(visitor.rules, rootRule = "S", grammarName = grammar.grammarName.text, extra = extra).generate()
+        //TODO: ROOT RULE
+        Generator(
+                visitor.rules,
+                rootRule = rootRule,
+                grammarName = grammar.grammarName.text,
+                extra = extra,
+                outDir = outDir ?: "generated",
+                outPackage = outPackage ?: "generated").generate()
     }
 }

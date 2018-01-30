@@ -1,5 +1,8 @@
 // Generated from D:/StudyHard/StanokParsing/Generator/src\Grammar.g4 by ANTLR 4.7
 package grammar;
+
+    import java.util.HashMap;
+
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
 /**
@@ -107,6 +110,16 @@ public interface GrammarListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitTypedArg(GrammarParser.TypedArgContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link GrammarParser#type}.
+	 * @param ctx the parse tree
+	 */
+	void enterType(GrammarParser.TypeContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link GrammarParser#type}.
+	 * @param ctx the parse tree
+	 */
+	void exitType(GrammarParser.TypeContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link GrammarParser#args}.
 	 * @param ctx the parse tree

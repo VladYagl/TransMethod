@@ -1,28 +1,35 @@
 grammar Grammar;
 
+@header {
+    import java.util.HashMap;
+}
+
 main : 'grammar' grammarName = NAME ';' header? members? (grammarRule ';')*;
 
-grammarRule : name = NAME argsDef? ':' (term ('|' term)* | expression);
+grammarRule : name = NAME arg = argsDef? ('attrs' attr = argsDef)? ':' (term ('|' term)* | expression);
 
 term: (CONST)+;
 
 expression : nonterm ('|' nonterm)*;
 
-nonterm: unar* CODE?;
+nonterm: unar* (CODE)?;
 
 unar : unar'*' | ruleName = NAME args? | '(' expression ')' | token = CONST;
 
 header : '@header' CODE;
 members : '@members' CODE;
 
-argsDef : '[' typedArg (',' typedArg)* ']';
-typedArg : NAME ':' TYPE;
-args : '[' CODE (',' CODE)* ']';
+argsDef returns [HashMap<String, String> attrs = new HashMap<>()] : '(' typedArg {$attrs.put($typedArg.name, $typedArg.typeT);} (',' typedArg {$attrs.put($typedArg.name, $typedArg.typeT);})* ')';
+typedArg returns [String name, String typeT] : NAME ':' type {$name = $NAME.text; $typeT = $type.text;};
+type : NAME ('.' NAME)* ('<'type (',' type)'>')? ('[]')?;
+
+args : ARGS;
+
+CONST : '\'' (~'\'' | '\\\'')* '\'';
+
 
 WHITESPACE : [ \t\r\n]+ -> skip;
-CONST : '\'' .*? '\'';
+
 NAME : [_a-zA-Z][_a-zA-Z0-9]*;
-
-TYPE : NAME('.'NAME)*('<'TYPE (',' TYPE)'>')?'[]'? | NAME;
 CODE : '{' (~[{}]+ CODE?)* '}';
-
+ARGS : '[' ~[[\]]+ ']';
